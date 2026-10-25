@@ -1,0 +1,43 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/aster-bubblenexus
+
+            echo "📥 Pulling latest code..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "📦 Installing backend deps..."
+            cd backend
+            npm install --production
+
+            echo "🔁 Restart backend..."
+            pm2 restart aster-nexus-server || pm2 start src/server.js --name aster-nexus-server
+
+            echo "📦 Installing scraper deps..."
+            cd ../aster-scrapper
+            npm install --production
+
+            echo "🔁 Restart scraper..."
+            pm2 restart aster-scrapper || pm2 start index.js --name aster-scrapper
+
+            echo "💾 Saving PM2..."
+            pm2 save
+
+            echo "✅ Deployment done"
